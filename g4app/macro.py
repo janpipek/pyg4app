@@ -78,3 +78,37 @@ class MacroBuilder(object):
 
     def render(self):
         return self._commands
+
+
+class CompositeMacroBuilder(object):
+    def __init__(self):
+        super(CompositeMacroBuilder, self).__init__()
+        self._before_handlers = []
+        self._after_handlers = []
+
+    def before(self, builder):
+        self._before_handlers.append(builder)
+
+    def after(self, builder):
+        self._after_handlers.append(builder)
+
+    def wrap(self, wrapper):
+        self._before_handlers.append(wrapper.before)
+        self._after_handlers.append(wrapper.after)
+
+    def render_self(self):
+        return []
+
+    def render_before(self):
+        commands = []
+        for h in self._before_handlers:
+            commands.append(h)
+        return commands
+
+    def render(self):
+        commands = []
+        commands += self.render_before()
+        commands += self.render_self()
+        for h in self._after_handlers:
+            commands.append(h)
+        return commands

@@ -1,2 +1,2 @@
-from .macro import Macro, MacroBuilder
+from .macro import Macro, MacroBuilder, CompositeMacroBuilder
 from .runner import execute
