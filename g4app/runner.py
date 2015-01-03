@@ -2,12 +2,13 @@ import tempfile
 import subprocess
 import signal
 import os
+import sys
 
 G4APP_PATH = os.getenv("G4APP_PATH") or "."
 G4APP_NAME = os.getenv("G4APP_NAME") or "g4"
 
 
-def kill(self, _signal, _frame):
+def kill(_signal, _frame):
     '''A special method to be substituted for default interrupt signal handling.
 
     It passes interrupt signal to the executed process.'''
@@ -16,7 +17,7 @@ def kill(self, _signal, _frame):
     g4process = None
     signal.signal(signal.SIGINT, signal.SIG_DFL)
 
-def execute(self, macro, macro_path=None, delete_macro_file=True, valgrind=False, gdb=False):
+def execute(macro, macro_path=None, delete_macro_file=True, valgrind=False, gdb=False):
     '''Create a temporary file from the commands and run it.
 
     :param macro: A Macro to write and execute.
@@ -46,7 +47,7 @@ def execute(self, macro, macro_path=None, delete_macro_file=True, valgrind=False
     sys.stdout.flush()
     macro.write(f)
     f.close()
-    signal.signal(signal.SIGINT, self.kill) # Bubble interruption to subprocess (and kill it)
+    signal.signal(signal.SIGINT, kill) # Bubble interruption to subprocess (and kill it)
     if valgrind:
         g4process = subprocess.Popen(["valgrind", "./" + G4APP_NAME, macro_path], cwd=G4APP_PATH)
     elif gdb:
