@@ -1,4 +1,4 @@
-from .macro import Macro, MacroBuilder
+from .macro import MacroBuilder
 from .configuration import Configuration
 from .gui import Gui
 from .runner import execute
@@ -8,8 +8,10 @@ class Application(MacroBuilder):
     '''A single execution of the application.'''
     def __init__(self, **kwargs):
         super(Application, self).__init__()
+        self.components = []
         self._plugins = []
         self.runs = []
+
         self.random = kwargs.get("random", True)
         self.log_events = kwargs.get("log_events", 1000)
         self.interactive = kwargs.get("interactive", False)
@@ -17,31 +19,42 @@ class Application(MacroBuilder):
         self._kwargs = kwargs
         self.events = 0
 
-    def add_plugin(self, path):
-        self._plugins.append(path)
+    def add_component(self, component):
+        self.components.append(component)
+
+    def add_plugin(self, name):
+        self._plugins.append(name)
 
     def add_run(self, run):
         self.runs.append(run)
 
+    def pre_initialize(self):
+        return ()
+
+    def post_initialize(self):
+        return ()
+
+    def pre_run(self, run):
+        return ()
+
+    @property
+    def plugins(self):
+        res = list(self._plugins)
+        for component in self.components:
+            res.extend(component.plugins)
+        return res
+
     def on_rendering(self):
         pass
 
-    def pre_initialize(self):
-        '''Override this.'''
-        return []
-
-    def post_initialize(self):
-        '''Override this.'''
-        return []
-
     @property
     def commands(self):
-        # Prepare app for rendering
         self.on_rendering()
 
+        # Prepare app for rendering
         yield None
 
-        for plugin in self._plugins:
+        for plugin in self.plugins:
             if not plugin.endswith(".so"):
                 # TODO: Works only on linux
                 plugin = "lib" + plugin + ".so"
@@ -50,10 +63,16 @@ class Application(MacroBuilder):
         if self.random:
             yield "/app/generateRandomSeed"
 
+        # Run initialization
         yield self.pre_initialize()
+        for component in self.components:
+            yield component.pre_initialize()
         yield "/run/initialize"
         yield self.post_initialize()
+        for component in self.components:
+            yield component.post_initialize()
 
+        # Configuration
         yield self.configuration
 
         if self.log_events:
@@ -62,11 +81,16 @@ class Application(MacroBuilder):
         yield "/app/addAction MemoryRunAction"
 
         if self.interactive:
-            if len(self._runs) > 1:
+            runs = self.runs
+            if len(runs) > 1:
                 raise BaseException("Only one run enabled in interactive mode.")
-            elif self.runs:
-                run = self.runs[0]
+            elif runs:
+                run = runs[0]
+                yield self.pre_run(run=run)
+                for component in self.components:
+                    yield component.pre_run(run=run)
                 yield run.before_commands
+
             yield "/app/prepareInteractive"
             yield Gui()
             yield "/app/interactive"
@@ -79,16 +103,19 @@ class Application(MacroBuilder):
             self.events = events
         if interactive is not None:
             self.interactive = interactive
-        macro = Macro()
-        macro.add(self)
-        execute(macro, **kwargs)
+        execute(self, **kwargs)
 
-    def write(self, path):
-        '''Just write the macro commands to a file.
+class Component(object):
+    @property
+    def plugins(self):
+        return ()
 
-        :param path: path of the output macro file
+    def pre_initialize(self):
+        return None
 
-        Running g4 application with the macro file has same result as self.run().'''
-        macro = Macro()
-        macro.add(self)
-        macro.write(path)
+    def post_initialize(self):
+        return None
+
+    def pre_run(self, run):
+        return None
+

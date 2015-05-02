@@ -8,5 +8,5 @@ class G4Run(WrappedMacroBuilder):
         self.add_command("/run/beamOn %d" % self.events)
 
     def add_scorer(self, scorer):
-    	# TODO: type checking?
-    	self.wrap(scorer)
+        # TODO: type checking?
+        self.wrap(scorer)
