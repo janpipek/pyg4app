@@ -9,7 +9,7 @@ class Application(MacroBuilder):
     def __init__(self, **kwargs):
         super(Application, self).__init__()
         self._plugins = []
-        self._runs = []
+        self.runs = []
         self.random = kwargs.get("random", True)
         self.log_events = kwargs.get("log_events", 1000)
         self.interactive = kwargs.get("interactive", False)
@@ -21,7 +21,7 @@ class Application(MacroBuilder):
         self._plugins.append(path)
 
     def add_run(self, run):
-        self._runs.append(run)
+        self.runs.append(run)
 
     def on_rendering(self):
         pass
@@ -34,44 +34,44 @@ class Application(MacroBuilder):
         '''Override this.'''
         return []
 
-    def render(self):
+    @property
+    def commands(self):
         # Prepare app for rendering
         self.on_rendering()
 
-        commands = []
+        yield None
+
         for plugin in self._plugins:
             if not plugin.endswith(".so"):
                 # TODO: Works only on linux
                 plugin = "lib" + plugin + ".so"
-            commands.append("/app/plugin/load " + plugin)
+            yield "/app/plugin/load " + plugin
 
         if self.random:
-            commands.append("/app/generateRandomSeed")        
+            yield "/app/generateRandomSeed"
 
-        commands += self.pre_initialize()
-        commands.append("/run/initialize")
-        commands += self.post_initialize()
+        yield self.pre_initialize()
+        yield "/run/initialize"
+        yield self.post_initialize()
 
-        if self.configuration:
-            commands.append(self.configuration)
+        yield self.configuration
 
         if self.log_events:
-            commands.append("/app/addAction NumberingEventAction")
-            commands.append("/app/setInt app.logEvents %d" % self.log_events)
-        commands.append("/app/addAction MemoryRunAction")
+            yield "/app/addAction NumberingEventAction"
+            yield "/app/setInt app.logEvents %d" % self.log_events
+        yield "/app/addAction MemoryRunAction"
 
         if self.interactive:
-            run = self._runs[0]
-            commands.append(run.render_before())            
-            commands.append("/app/prepareInteractive")
-            commands.append(Gui())
-            commands.append("/app/interactive")
+            if len(self._runs) > 1:
+                raise BaseException("Only one run enabled in interactive mode.")
+            elif self.runs:
+                run = self.runs[0]
+                yield run.before_commands
+            yield "/app/prepareInteractive"
+            yield Gui()
+            yield "/app/interactive"
         else:
-            for run in self._runs:
-                commands.append(run)
-
-        # commands.append("/run/beamOn %d" % self.events)        
-        return commands
+            yield self.runs
 
     def execute(self, events=None, interactive=None, **kwargs):
         '''Execute the application.'''

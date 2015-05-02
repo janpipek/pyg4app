@@ -17,6 +17,7 @@ def kill(_signal, _frame):
     g4process = None
     signal.signal(signal.SIGINT, signal.SIG_DFL)
 
+
 def execute(macro, macro_path=None, delete_macro_file=True, valgrind=False, gdb=False):
     '''Create a temporary file from the commands and run it.
 

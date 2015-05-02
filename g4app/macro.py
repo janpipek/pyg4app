@@ -10,6 +10,7 @@ class Macro(object):
             self.include(path)
 
     def add(self, command):
+        self.commands.append(command)
         '''Add a command.
 
         What can be included:
@@ -76,39 +77,67 @@ class MacroBuilder(object):
     def __init__(self, commands=()):
         self._commands = list(commands)
 
-    def render(self):
+    @property
+    def commands(self):
         return self._commands
 
-
-class CompositeMacroBuilder(object):
-    def __init__(self):
-        super(CompositeMacroBuilder, self).__init__()
-        self._before_handlers = []
-        self._after_handlers = []
-
-    def before(self, builder):
-        self._before_handlers.append(builder)
-
-    def after(self, builder):
-        self._after_handlers.append(builder)
-
-    def wrap(self, wrapper):
-        self._before_handlers.append(wrapper.before)
-        self._after_handlers.append(wrapper.after)
-
-    def render_self(self):
-        return []
-
-    def render_before(self):
-        commands = []
-        for h in self._before_handlers:
-            commands.append(h)
-        return commands
+    def add_command(self, command):
+        self._commands.append(command)
 
     def render(self):
-        commands = []
-        commands += self.render_before()
-        commands += self.render_self()
-        for h in self._after_handlers:
-            commands.append(h)
-        return commands
+        """All command lines (generator function)."""
+        for command in self.commands:
+            # 1. ignore false-like objects
+            if not command:
+                continue
+
+            # 2. create iterator walking down the tree
+            if hasattr(command, "render"):
+                iterator = command.render()
+            elif isinstance(command, basestring):
+                iterator = (command,)
+            elif hasattr(command, "__iter__"):
+                builder = MacroBuilder(command)
+                iterator = builder.render()
+
+            # 3. get all lines from the iterator
+            for line in iterator:
+                yield line
+
+
+class WrappedMacroBuilder(MacroBuilder):
+    def __init__(self, commands=()):
+        super(WrappedMacroBuilder, self).__init__(commands)
+        self.before_commands = []
+        self.after_commands = []
+
+    def add_before(self, builder, prepend=True):
+        if prepend:
+            self.before_commands.insert(0, builder)
+        else:
+            self.before_commands.append(builder)
+
+    def add_after(self, builder):
+        self.after_commands.append(builder)
+
+    def wrap(self, wrapper, prepend=True):
+        """
+
+        :type wrapper: MacroWrapper
+        """
+        self.add_before(wrapper.before, prepend)
+        self.add_after(wrapper.after)
+
+    @property
+    def commands(self):
+        yield self.before_commands
+        yield self._commands
+        yield self.after_commands
+
+
+class MacroBuilderWrapper(object):
+    def before(self):
+        return []
+
+    def after(self):
+        return []

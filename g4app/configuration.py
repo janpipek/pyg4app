@@ -1,4 +1,7 @@
-class Configuration(dict):
+import collections
+
+
+class Configuration(collections.OrderedDict):
     def render(self):
         commands = []
         for key, value in self.items():

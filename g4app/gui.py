@@ -1,8 +1,10 @@
 from .macro import MacroBuilder
 
+
 class Gui(MacroBuilder):
     '''A simple visualization menu.'''
-    def render(self):
+    @property
+    def commands(self):
         return [
             '/gui/addMenu vis Visualization',
             '/gui/addButton vis "Initialize" "/vis/open OGLSQt"',
