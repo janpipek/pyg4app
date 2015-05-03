@@ -22,13 +22,14 @@ class MacroBuilder(object):
             # 2. create iterator walking down the tree
             if hasattr(command, "render"):
                 iterator = command.render()
+                if isinstance(iterator, basestring):
+                    iterator = (iterator,)
+
             elif isinstance(command, basestring):
                 iterator = (command,)
             elif hasattr(command, "__iter__"):
                 builder = MacroBuilder(command)
                 iterator = builder.render()
-            else:
-                raise BaseException("Invalid command of type %s" % type(command))
 
             # 3. get all lines from the iterator
             for line in iterator:

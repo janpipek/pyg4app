@@ -1,10 +1,11 @@
 from .macro import MacroBuilderWrapper
 
+from functools import partial
 
 class ScoreWrapper(MacroBuilderWrapper):
     def __init__(self, name, box_size, n_bins, file_name):
         self.name = name
-        self._quantities = []
+        self.quantities = []
         self.box_size = box_size                      # (x, y, z) in mm
         self.n_bins = n_bins
         self.file_name = file_name
@@ -12,7 +13,7 @@ class ScoreWrapper(MacroBuilderWrapper):
         self.rotations = ()                           # (("X", 70), ("Z", 10)), in deg
 
     def add_quantity(self, quantity):
-        self._quantities.append(quantity)
+        self.quantities.append(quantity)
 
     @property
     def before(self):
@@ -29,17 +30,16 @@ class ScoreWrapper(MacroBuilderWrapper):
         for rotation in self.rotations:
             if rotation[1]: # zero rotation not needed
                 commands.append("/score/mesh/rotate/rotate%s %f deg" % (rotation[0].upper(), -rotation[1]))
-        # for name, quantity in self._quantities.items():
-        #    commands.append("/score/quantity/%s %s" % (quantity, name))
+        commands.extend(self.quantities)
         commands.append("/score/close")
         return commands
 
     @property
     def after(self):
         commands = []
-        # for name, quantity in self._quantities.items():
-        #     commands.append("/score/dumpQuantityToFile %s %s %s" % (self.name, name, self.file_name))
-        # return commands
+        for quantity in self.quantities:
+            commands.append("/score/dumpQuantityToFile %s %s %s" % (self.name, quantity.qname, self.file_name))
+        return commands
 
 
 class Quantity(object):
@@ -55,15 +55,17 @@ class Quantity(object):
         self.qname = qname
         self.args = args
 
-    def render(self, name):
-        return "/score/quantity/"
+    def render(self):
+        return "/score/quantity/%s %s %s" % (self.qtype, " ".join(self.args), self.qname)
 
-    energy_deposit = "energyDeposit"
-    cell_charge = "cellCharge"
-    cell_flux = "cellFlux"
-    dose_deposit = "doseDeposit"
-    n_of_step = "nOfStep"
-    n_of_secondary = "nOfSecondary"
+
+class quantities(object):
+    """Static class with defined scoring quantities."""
+    energyDeposit = energy_deposit = partial(Quantity, "energyDeposit")
+    cellCharge = cell_charge = partial(Quantity, "cellCharge")
+    cellFlux = cell_flux = partial(Quantity, "cellFlux")
+    doseDeposit = dose_deposit = partial(Quantity, "doseDeposit")
+
 
 
 
